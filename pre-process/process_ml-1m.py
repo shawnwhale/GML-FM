@@ -41,6 +41,7 @@ def parse_item(item_path):
 			entries = line.strip().split('::')
 			item_info[int(entries[0])] = entries[-1]
 			line = fd.readline()
+	#此处编号和movies.dat一致，比如跳过了91
 	return item_info
 
 
@@ -63,6 +64,9 @@ def parse_rating(rating_path, item_info):
 	item_dict = {item_set[i]: i for i in range(len(item_set))}
 	items = map(lambda x: item_dict[x], items)
 	users = map(lambda x: x - 1, users)
+
+	#储存item编号的变化
+	#np.save('./item_dict.npy', item_dict)
 
 	# re-norm item index and genre index
 	item_info = {item_dict[i]: item_info[i]
@@ -144,6 +148,7 @@ def ng_sample(rating, pst_mat,
 		'age', 'occupation', 'genre', 'rating'])
 
 	point_len = user_len
+	print("item + " + str(point_len))
 	rating['item'] = rating['item'].apply(
 							lambda x: x + point_len)
 	point_len += item_len
@@ -183,13 +188,17 @@ def to_disk(rating, path):
 def main():
 	np.random.seed(2019)
 
-	user_path = os.path.join(config.ml-1m_dir, 'users.dat')
-	movie_path = os.path.join(config.ml-1m_dir, 'movies.dat')
-	rating_path = os.path.join(config.ml-1m_dir, 'ratings.dat')
+	user_path = os.path.join(config.ml_dir, 'users.dat')
+	movie_path = os.path.join(config.ml_dir, 'movies.dat')
+	rating_path = os.path.join(config.ml_dir, 'ratings.dat')
 
 	user_info = parse_user(user_path)
 	item_info = parse_item(movie_path)
 	rating, item_info = parse_rating(rating_path, item_info)
+
+	np.save('./parrating', rating)
+	np.save('./paritem', item_info)
+	np.save('./paruser', user_info)
 
 	user_len = len(rating['user'].unique())
 	item_len = len(rating['item'].unique())
@@ -202,6 +211,8 @@ def main():
 	rating = rating.sort_values(by=['user', 'timestamp'])
 	train_rating, test_rating = split_data(rating)
 
+	# np.save("./traing_rating_kendall.npy",train_rating)
+
 	pst_mat = sp.dok_matrix((user_len, item_len), dtype=np.float32)
 	train_rating, pst_mat = ng_sample(
 		train_rating, pst_mat,
@@ -211,6 +222,9 @@ def main():
 		test_rating, pst_mat,
 		user_len, item_len,
 		user_info, item_info, ng_num=99)
+
+	np.save('./train_rating', train_rating)
+	np.save('./test_rating', test_rating)
 
 	if not os.path.exists(config.main_path):
 		os.mkdir(config.main_path)
